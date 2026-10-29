@@ -1,0 +1,56 @@
+#include <WiFi.h>
+#include <Wire.h>
+#include <RTClib.h>
+#include "time.h"
+
+const char* ssid       = "NOME_RETE_WIFI";
+const char* password   = "PASSWORD_WIFI";
+
+const char* ntpServer  = "pool.ntp.org";
+const long  gmtOffset_sec = 3600;      // UTC +1 (Italia)
+const int   daylightOffset_sec = 3600; // Ora legale (+1 ora)
+
+RTC_DS3231 rtc;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(21, 22);
+
+  if (!rtc.begin()) {
+    Serial.println("Errore RTC!");
+    while (1);
+  }
+
+  Serial.print("Connessione a ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+
+  int tentativi = 0;
+  while (WiFi.status() != WL_CONNECTED && tentativi < 20) {
+    delay(500);
+    Serial.print(".");
+    tentativi++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Connesso.");
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
+                          timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+      Serial.println("RTC Sincronizzato con successo tramite NTP!");
+    } else {
+      Serial.println("Impossibile ottenere l'ora da NTP.");
+    }
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+  } else {
+    Serial.println("\nWiFi non disponibile. Utilizzo ora corrente dell'RTC.");
+  }
+}
+
+void loop() {
+  // Il ciclo principale può proseguire offline
+}
